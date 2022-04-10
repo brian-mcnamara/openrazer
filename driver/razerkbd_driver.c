@@ -252,6 +252,15 @@ static bool is_blade_laptop(struct usb_device *usb_dev)
     return false;
 }
 
+static bool has_breathing_logo(struct usb_device *usb_dev)
+{
+    switch (usb_dev->descriptor.idProduct) {
+    case USB_DEVICE_ID_RAZER_BLADE_15_ADV_EARLY_2022:
+        return true;
+    }
+    return false;
+}
+
 /**
  * Send report to the keyboard
  */
@@ -2072,6 +2081,41 @@ static ssize_t razer_attr_write_logo_led_state(struct device *dev, struct device
 }
 
 /**
+ * Reads device file "set_logo"
+ *
+ * Reads the logo lighting state (the ASCII number) written to this file.
+ */
+static ssize_t razer_attr_read_logo_led_effect(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    struct usb_interface *intf = to_usb_interface(dev->parent);
+    struct usb_device *usb_dev = interface_to_usbdev(intf);
+    struct razer_report report = razer_chroma_standard_get_led_effect(VARSTORE, LOGO_LED);
+    struct razer_report response = razer_send_payload(usb_dev, &report);
+    int state = response.arguments[2];
+
+    return sprintf(buf, "%d\n", state);
+}
+
+/**
+ * Write device file "set_logo"
+ *
+ * Sets the logo lighting state to the ASCII number written to this file.
+ */
+static ssize_t razer_attr_write_logo_led_effect(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    struct usb_interface *intf = to_usb_interface(dev->parent);
+    struct usb_device *usb_dev = interface_to_usbdev(intf);
+    unsigned char state = (unsigned char)simple_strtoul(buf, NULL, 10);
+    struct razer_report report = razer_chroma_standard_set_led_effect(VARSTORE, LOGO_LED, state);
+
+    report.transaction_id.id = 0x1f;
+
+    razer_send_payload(usb_dev, &report);
+
+    return count;
+}
+
+/**
  * Write device file "mode_custom"
  *
  * Sets the keyboard to custom mode whenever the file is written to
@@ -2585,6 +2629,7 @@ static DEVICE_ATTR(game_led_state,          0660, razer_attr_read_game_led_state
 static DEVICE_ATTR(macro_led_state,         0660, razer_attr_read_macro_led_state,            razer_attr_write_macro_led_state);
 static DEVICE_ATTR(macro_led_effect,        0660, razer_attr_read_macro_led_effect,           razer_attr_write_macro_led_effect);
 static DEVICE_ATTR(logo_led_state,          0660, razer_attr_read_logo_led_state,             razer_attr_write_logo_led_state);
+static DEVICE_ATTR(logo_led_effect,         0660, razer_attr_read_logo_led_effect,            razer_attr_write_logo_led_effect);
 static DEVICE_ATTR(profile_led_red,         0660, razer_attr_read_profile_led_red,            razer_attr_write_profile_led_red);
 static DEVICE_ATTR(profile_led_green,       0660, razer_attr_read_profile_led_green,          razer_attr_write_profile_led_green);
 static DEVICE_ATTR(profile_led_blue,        0660, razer_attr_read_profile_led_blue,           razer_attr_write_profile_led_blue);
@@ -3326,6 +3371,7 @@ static int razer_kbd_probe(struct hid_device *hdev, const struct hid_device_id *
             CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_effect_custom);          // Custom effect
             CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_matrix_custom_frame);           // Set LED matrix
             CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_logo_led_state);                // Enable/Disable the logo
+            CREATE_DEVICE_FILE(&hdev->dev, &dev_attr_logo_led_effect);               // Set logo effect
             break;
 
         case USB_DEVICE_ID_RAZER_BLADE_PRO_EARLY_2020:

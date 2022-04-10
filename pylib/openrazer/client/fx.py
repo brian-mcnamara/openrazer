@@ -803,6 +803,14 @@ class SingleLed(BaseRazerFX):
             return True
         return False
 
+    def static_mono(self) -> bool:
+        if self._shas('static_mono'):
+
+            self._getattr('set#StaticMono')()
+
+            return True
+        return False
+
     def wave(self, direction: int) -> bool:
         if direction not in (c.WAVE_LEFT, c.WAVE_RIGHT):
             raise ValueError("Direction must be WAVE_RIGHT (0x01) or WAVE_LEFT (0x02)")
@@ -968,6 +976,14 @@ class SingleLed(BaseRazerFX):
 
         if self._shas('breath_random'):
             self._getattr('set#BreathRandom')()
+
+            return True
+        return False
+
+    def pulsate_mono(self) -> bool:
+        if self._shas('pulsate_mono'):
+
+            self._getattr('set#PulsateMono')()
 
             return True
         return False
